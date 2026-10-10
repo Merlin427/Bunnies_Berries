@@ -64,6 +64,27 @@
   .cbtn small { font-size:16px; }
   .cbtn:active { transform:translateY(6px); box-shadow:0 2px 0 var(--btn-shadow); }
   .cbtn.alt { background:#8fd3ff; box-shadow:0 8px 0 #4a9bd0; color:#0f3a5a; }
+
+  /* Stickers */
+  .slots { display:flex; gap:6px; justify-content:center; --s:22px; }
+  .slot { width:var(--s); height:var(--s); border-radius:50%; border:2px dashed rgba(255,255,255,.28);
+    display:flex; align-items:center; justify-content:center; font-size:calc(var(--s) * .66); line-height:1; flex:0 0 auto; }
+  .slot.cur { border-color:#ffcf5a; }
+  .slot.got { border:2px solid #ffcf5a; background:#fff3cf; }
+  .slot.now { animation:pop .7s cubic-bezier(.3,1.6,.5,1) .35s both; }
+  .slots.big { --s:50px; gap:10px; }
+  .slots.huge { --s:62px; gap:10px; }
+  .dance .slot { animation:bounce .7s ease-in-out infinite alternate; }
+  .dance .slot:nth-child(2) { animation-delay:.14s; } .dance .slot:nth-child(3) { animation-delay:.28s; }
+  .dance .slot:nth-child(4) { animation-delay:.42s; } .dance .slot:nth-child(5) { animation-delay:.56s; }
+  .sticker-pop { font-size:110px; line-height:1; animation:pop .7s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes pop { 0% { transform:scale(0) rotate(-30deg); } 100% { transform:scale(1) rotate(0); } }
+  @keyframes bounce { from { transform:translateY(0) rotate(-10deg); } to { transform:translateY(-16px) rotate(10deg); } }
+  #party { overflow:hidden; }
+  #party .trophy { font-size:96px; line-height:1; animation:pop .8s cubic-bezier(.3,1.6,.5,1), bounce .9s ease-in-out .8s infinite alternate; }
+  #confetti { position:absolute; inset:0; pointer-events:none; }
+  #confetti span { position:absolute; top:-50px; font-size:30px; animation:fall linear forwards; }
+  @keyframes fall { to { transform:translateY(115vh) rotate(720deg); } }
 </style>
 </head>
 <body>
@@ -71,7 +92,7 @@
   <div id="hud">
     <button class="hbtn" id="homeBtn" aria-label="Home (tap twice)">🏠</button>
     <div id="bar"><div id="barfill"></div></div>
-    <div id="score">⭐ 0</div>
+    <div class="slots" id="hudSlots"></div>
     <button class="hbtn" id="muteBtn" aria-label="Sound">🔊</button>
   </div>
   <div id="main">
@@ -88,19 +109,32 @@
 <div class="overlay show" id="menu">
   <div class="big">🐰</div>
   <h1>Bunny Berries</h1>
+  <div class="slots big" id="menuSlots"></div>
   <div class="choice">
     <button class="cbtn" id="littleBtn">🍓<small>Just berries</small></button>
     <button class="cbtn alt" id="bigBtn">☁️<small>Berries + clouds</small></button>
   </div>
-  <p>Tap where the bunny should go, swipe, or use the big arrows.</p>
+  <p>Hold an arrow to hop, swipe, or tap where the bunny should go.</p>
 </div>
 
 <div class="overlay" id="win">
-  <div class="big">🎉</div>
-  <h1>Yay! All gone!</h1>
+  <div class="sticker-pop" id="newSticker">🐞</div>
+  <h1>You got a sticker!</h1>
+  <div class="slots big" id="winSlots"></div>
   <div class="choice">
-    <button class="cbtn" id="againBtn">▶<small>Again!</small></button>
+    <button class="cbtn" id="nextBtn">▶<small>Next level</small></button>
     <button class="cbtn alt" id="winHomeBtn">🏠<small>Home</small></button>
+  </div>
+</div>
+
+<div class="overlay" id="party">
+  <div id="confetti"></div>
+  <div class="trophy">🏆</div>
+  <h1>All 5 stickers!</h1>
+  <div class="slots huge dance" id="partySlots"></div>
+  <div class="choice">
+    <button class="cbtn" id="restartBtn">🔄<small>Play again</small></button>
+    <button class="cbtn alt" id="partyHomeBtn">🏠<small>Home</small></button>
   </div>
 </div>
 
@@ -110,24 +144,87 @@
 
 // ---------- Maze ----------
 // # wall   . berry   o star   P bunny start   G cloud start
-const MAP = [
-  "###########",
-  "#....#....#",
-  "#o##.#.##o#",
-  "#.........#",
-  "#.##.#.##.#",
-  "#....#....#",
-  "####.#.####",
-  "#...G.G...#",
-  "#.##.#.##.#",
-  "#..#...#..#",
-  "##.#.#.#.##",
-  "#.........#",
-  "#o###.###o#",
-  "#....P....#",
-  "###########"
+const MAPS = [
+  [ "###########",
+    "#....#....#",
+    "#o##.#.##o#",
+    "#.........#",
+    "#.##.#.##.#",
+    "#....#....#",
+    "####.#.####",
+    "#...G.G...#",
+    "#.##.#.##.#",
+    "#..#...#..#",
+    "##.#.#.#.##",
+    "#.........#",
+    "#o###.###o#",
+    "#....P....#",
+    "###########" ],
+  [ "###########",
+    "#.........#",
+    "#.#.###.#.#",
+    "#o#.....#o#",
+    "#.#.#.#.#.#",
+    "#...#.#...#",
+    "###.....###",
+    "#...G.G...#",
+    "#.#.###.#.#",
+    "#.#.....#.#",
+    "#...#.#...#",
+    "#.###.###.#",
+    "#o.......o#",
+    "#....P....#",
+    "###########" ],
+  [ "###########",
+    "#o...#...o#",
+    "#.##...##.#",
+    "#.#..#..#.#",
+    "#...###...#",
+    "#.#.....#.#",
+    "#.#.###.#.#",
+    "#...G.G...#",
+    "###.#.#.###",
+    "#.........#",
+    "#.##.#.##.#",
+    "#o.#.#.#.o#",
+    "##.......##",
+    "#....P....#",
+    "###########" ],
+  [ "###########",
+    "#.........#",
+    "#.##.#.##.#",
+    "#o#..#..#o#",
+    "#.#.###.#.#",
+    "#.........#",
+    "##.##.##.##",
+    "#...G.G...#",
+    "#.#.#.#.#.#",
+    "#.#.....#.#",
+    "#...#.#...#",
+    "#.#.#.#.#.#",
+    "#o.......o#",
+    "#.##.P.##.#",
+    "###########" ],
+  [ "###########",
+    "#o.......o#",
+    "#.#.#.#.#.#",
+    "#.#.#.#.#.#",
+    "#.........#",
+    "#.###.###.#",
+    "#.........#",
+    "###.G.G.###",
+    "#...#.#...#",
+    "#.#.....#.#",
+    "#.#.###.#.#",
+    "#.........#",
+    "#.##.#.##.#",
+    "#o...P...o#",
+    "###########" ]
 ];
-const COLS = MAP[0].length, ROWS = MAP.length;
+const LEVELS = MAPS.length, COLS = 11, ROWS = 15;
+const STICKERS = ['🐞', '🌻', '🦋', '🍉', '🦄'];
+const WALL_COLORS = [['#2f9e86', '#5fd6b6'], ['#c0567a', '#ff8fb1'], ['#c78a1a', '#ffc94d'], ['#5a63c9', '#8f9bff'], ['#3f9a3f', '#7fd67f']];
+const PLAYER_SPEED = 3.15; // tiles per second (25% slower than before)
 const DIRS = [[0,-1],[0,1],[-1,0],[1,0]];
 const DIRNAMES = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
 const CLOUD_COLORS = ['#9ad7ff', '#d3b6ff'];
@@ -135,7 +232,7 @@ const CLOUD_COLORS = ['#9ad7ff', '#d3b6ff'];
 // ---------- State ----------
 let walls, food, total, remaining, score = 0, level = 1, mode = 'little';
 let player, clouds = [], particles = [], target = null;
-let want = null, path = [], pathMode = false, face = 1;
+let held = null, swipe = null, path = [], pathMode = false, face = 1;
 let scared = 0, grace = 0, state = 'menu', stateT = 0, time = 0, chompFlip = false;
 
 const $ = id => document.getElementById(id);
@@ -148,6 +245,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
 let muted = store.get('bb-muted', false);
+let stickers = store.get('bb-stickers', 0);
 
 function isOpen(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS && !walls[y][x]; }
 function mk(x, y) { return { x, y, sx:x, sy:y, dx:0, dy:0, t:0, wait:0 }; }
@@ -156,6 +254,7 @@ function mk(x, y) { return { x, y, sx:x, sy:y, dx:0, dy:0, t:0, wait:0 }; }
 function buildLevel() {
   walls = []; food = []; total = 0; clouds = []; particles = [];
   let ci = 0;
+  const MAP = MAPS[level - 1];
   for (let y = 0; y < ROWS; y++) {
     walls.push([]); food.push([]);
     for (let x = 0; x < COLS; x++) {
@@ -170,14 +269,14 @@ function buildLevel() {
       if (ch === 'G') ci++;
     }
   }
-  remaining = total; scared = 0; grace = 1.5; want = null; path = []; pathMode = false; target = null; face = 1;
+  remaining = total; scared = 0; grace = 1.5; swipe = null; path = []; pathMode = false; target = null; face = 1;
   state = 'play'; updateHud(); resize();
 }
 
 function resetPositions() {
   player.x = player.sx; player.y = player.sy; player.dx = player.dy = 0; player.t = 0;
   clouds.forEach((c, i) => { c.x = c.sx; c.y = c.sy; c.dx = c.dy = 0; c.t = 0; c.wait = 1 + i; });
-  want = null; path = []; pathMode = false; target = null; grace = 1.5; state = 'play';
+  swipe = null; path = []; pathMode = false; target = null; grace = 1.5; state = 'play';
 }
 
 // ---------- Sizing & static maze drawing ----------
@@ -204,7 +303,8 @@ function drawMaze() {
   c.fillStyle = '#26366a'; c.fillRect(0, 0, COLS * T, ROWS * T);
   const pad = T * 0.16;
   const isW = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && walls[y][x];
-  [['#2f9e86', T * 0.07], ['#5fd6b6', 0]].forEach(([col, off]) => {
+  const wc = WALL_COLORS[(level - 1) % WALL_COLORS.length];
+  [[wc[0], T * 0.07], [wc[1], 0]].forEach(([col, off]) => {
     c.fillStyle = col;
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
       if (!walls[y][x]) continue;
@@ -240,6 +340,12 @@ const sfx = {
   poof() { tone(900, 0.25, 'sine', 0.12, 0, 1800); },
   oops() { tone(500, 0.35, 'sine', 0.14, 0, 200); tone(400, 0.4, 'sine', 0.1, 0.2, 160); },
   win() { [523, 659, 784, 659, 784, 1046].forEach((f, i) => tone(f, 0.22, 'triangle', 0.14, i * 0.13)); },
+  sticker() { tone(700, 0.3, 'sine', 0.12, 0, 1400); tone(1400, 0.2, 'triangle', 0.08, 0.25); },
+  party() {
+    const n = [523, 659, 784, 1046, 784, 1046, 1318, 1046, 1318, 1568];
+    n.forEach((f, i) => tone(f, 0.25, 'triangle', 0.14, i * 0.15));
+    [262, 330, 392, 523].forEach((f, i) => tone(f, 0.9, 'sine', 0.06, 1.5 + i * 0.05));
+  },
   tap() { tone(880, 0.05, 'sine', 0.06); }
 };
 
@@ -249,8 +355,12 @@ function choosePlayer(p) {
     if (path.length) { const d = path.shift(); p.dx = d[0]; p.dy = d[1]; return true; }
     pathMode = false; target = null; p.dx = p.dy = 0; return false;
   }
-  if (want && isOpen(p.x + want[0], p.y + want[1])) { p.dx = want[0]; p.dy = want[1]; return true; }
-  if ((p.dx || p.dy) && isOpen(p.x + p.dx, p.y + p.dy)) return true;
+  // Arrows/keys only move the bunny while held; a swipe keeps going until a wall.
+  const d = held || swipe;
+  if (d && isOpen(p.x + d[0], p.y + d[1])) { p.dx = d[0]; p.dy = d[1]; return true; }
+  // Turn not open yet: keep going straight until it is (only while something is pressed)
+  if (d && (p.dx || p.dy) && isOpen(p.x + p.dx, p.y + p.dy)) return true;
+  if (!held) swipe = null;
   p.dx = p.dy = 0; return false;
 }
 
@@ -294,22 +404,56 @@ function eatHere() {
 function updatePlayer(dt) {
   const p = player;
   // Allow turning around instantly, mid-tile
-  if (!pathMode && want && (p.dx || p.dy) && want[0] === -p.dx && want[1] === -p.dy) {
-    p.x += p.dx; p.y += p.dy; p.dx = want[0]; p.dy = want[1]; p.t = 1 - p.t;
+  const d = held || swipe;
+  if (!pathMode && d && (p.dx || p.dy) && d[0] === -p.dx && d[1] === -p.dy) {
+    p.x += p.dx; p.y += p.dy; p.dx = d[0]; p.dy = d[1]; p.t = 1 - p.t;
   }
-  move(p, dt, 4.2, choosePlayer, eatHere);
+  move(p, dt, PLAYER_SPEED, choosePlayer, eatHere);
   if (p.dx) face = p.dx;
 }
 
 function oops() {
   state = 'oops'; stateT = 1.6; sfx.oops();
-  want = null; path = []; pathMode = false; target = null;
+  swipe = null; path = []; pathMode = false; target = null;
+}
+
+function renderSlots(el, n, popIdx) {
+  el.innerHTML = STICKERS.map((s, i) =>
+    '<div class="slot' + (i < n ? ' got' : '') + (i === popIdx ? ' now' : '') +
+    (i === level - 1 && i >= n && state !== 'menu' ? ' cur' : '') + '">' + (i < n ? s : '') + '</div>').join('');
 }
 
 function win() {
   state = 'win'; sfx.win();
   for (let i = 0; i < 50; i++) burst(Math.random() * COLS, -0.5, 1, ['#ff5c8a', '#ffe066', '#8fd3ff', '#9b8cff', '#5fd6b6'], true);
-  setTimeout(() => { if (state === 'win') $('win').classList.add('show'); }, 1500);
+  if (level > stickers) { stickers = level; store.set('bb-stickers', stickers); }
+  updateHud();
+  setTimeout(() => {
+    if (state !== 'win') return;
+    if (level >= LEVELS) { showParty(); return; }
+    const ns = $('newSticker');
+    ns.textContent = STICKERS[level - 1];
+    ns.classList.remove('sticker-pop'); void ns.offsetWidth; ns.classList.add('sticker-pop');
+    renderSlots($('winSlots'), stickers, level - 1);
+    $('win').classList.add('show');
+    sfx.sticker();
+  }, 1400);
+}
+
+function showParty() {
+  renderSlots($('partySlots'), LEVELS);
+  const box = $('confetti'); box.innerHTML = '';
+  const bits = ['🎉', '⭐', '🎈', '💖', '✨'].concat(STICKERS);
+  for (let i = 0; i < 45; i++) {
+    const s = document.createElement('span');
+    s.textContent = bits[(Math.random() * bits.length) | 0];
+    s.style.left = (Math.random() * 100) + '%';
+    s.style.animationDuration = (2.5 + Math.random() * 3) + 's';
+    s.style.animationDelay = (Math.random() * 2.5) + 's';
+    box.appendChild(s);
+  }
+  $('party').classList.add('show');
+  sfx.party();
 }
 
 function update(dt) {
@@ -477,7 +621,7 @@ function render() {
 
 function updateHud() {
   $('barfill').style.width = (total ? (100 * (total - remaining) / total) : 0) + '%';
-  $('score').textContent = '⭐ ' + score;
+  renderSlots($('hudSlots'), stickers);
   $('muteBtn').textContent = muted ? '🔇' : '🔊';
 }
 
@@ -492,7 +636,10 @@ function frame(ts) {
 }
 
 // ---------- Input ----------
-function setDir(d) { want = d; pathMode = false; path = []; target = null; }
+function cancelPath() { pathMode = false; path = []; target = null; }
+function holdDir(d) { held = d; swipe = null; cancelPath(); }
+function releaseDir(d) { if (held === d) held = null; }
+function swipeDir(d) { swipe = d; cancelPath(); }
 
 function bfs(sx, sy, tx, ty) {
   const prev = new Array(COLS * ROWS).fill(-1), start = sy * COLS + sx, goal = ty * COLS + tx;
@@ -527,14 +674,14 @@ function tapAt(clientX, clientY) {
   const sx = moving ? p.x + p.dx : p.x, sy = moving ? p.y + p.dy : p.y;
   const route = bfs(sx, sy, best[0], best[1]);
   if (!route) return;
-  path = route; pathMode = true; want = null; target = { x: best[0], y: best[1], life: 0 };
+  path = route; pathMode = true; swipe = null; target = { x: best[0], y: best[1], life: 0 };
   sfx.tap();
 }
 
 function gesture(x0, y0, x1, y1) {
   const dx = x1 - x0, dy = y1 - y0;
   if (Math.hypot(dx, dy) > 28) {
-    setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? DIRNAMES.right : DIRNAMES.left) : (dy > 0 ? DIRNAMES.down : DIRNAMES.up));
+    swipeDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? DIRNAMES.right : DIRNAMES.left) : (dy > 0 ? DIRNAMES.down : DIRNAMES.up));
   } else tapAt(x1, y1);
 }
 
@@ -547,8 +694,8 @@ stage.addEventListener('mouseup', e => { if (mouse0) gesture(mouse0[0], mouse0[1
 
 document.querySelectorAll('.dbtn').forEach(b => {
   const d = DIRNAMES[b.dataset.d];
-  const down = e => { e.preventDefault(); unlockAudio(); setDir(d); b.classList.add('on'); };
-  const up = e => { e.preventDefault(); b.classList.remove('on'); };
+  const down = e => { e.preventDefault(); unlockAudio(); holdDir(d); b.classList.add('on'); };
+  const up = e => { e.preventDefault(); releaseDir(d); b.classList.remove('on'); };
   b.addEventListener('touchstart', down, { passive: false });
   b.addEventListener('touchend', up, { passive: false });
   b.addEventListener('touchcancel', up, { passive: false });
@@ -559,8 +706,16 @@ document.querySelectorAll('.dbtn').forEach(b => {
 
 window.addEventListener('keydown', e => {
   const k = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', w:'up', s:'down', a:'left', d:'right' }[e.key];
-  if (k) { e.preventDefault(); unlockAudio(); setDir(DIRNAMES[k]); }
+  if (k) { e.preventDefault(); if (e.repeat) return; unlockAudio(); holdDir(DIRNAMES[k]); }
 });
+window.addEventListener('keyup', e => {
+  const k = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', w:'up', s:'down', a:'left', d:'right' }[e.key];
+  if (k) releaseDir(DIRNAMES[k]);
+});
+// Never leave an arrow "stuck down" if the app is backgrounded mid-press
+function releaseAll() { held = null; document.querySelectorAll('.dbtn.on').forEach(b => b.classList.remove('on')); }
+window.addEventListener('blur', releaseAll);
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 
 // Stop iOS scrolling, pinch-zoom and double-tap zoom
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
@@ -568,18 +723,29 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
 
 // ---------- Menus ----------
+function hideOverlays() { ['menu', 'win', 'party'].forEach(id => $(id).classList.remove('show')); }
+function resetStickers() { stickers = 0; store.set('bb-stickers', 0); }
+
 function startGame(m) {
-  unlockAudio(); mode = m; level = 1; score = 0;
+  unlockAudio(); mode = m; score = 0;
   store.set('bb-mode', m);
-  $('menu').classList.remove('show'); $('win').classList.remove('show');
+  if (stickers >= LEVELS) resetStickers();
+  level = stickers + 1; // carry on from the next sticker
+  hideOverlays(); releaseAll();
   buildLevel();
 }
-function goMenu() { state = 'menu'; $('win').classList.remove('show'); $('menu').classList.add('show'); }
+function goMenu() {
+  state = 'menu'; hideOverlays(); releaseAll();
+  renderSlots($('menuSlots'), stickers);
+  $('menu').classList.add('show');
+}
 
 $('littleBtn').addEventListener('click', () => startGame('little'));
 $('bigBtn').addEventListener('click', () => startGame('big'));
-$('againBtn').addEventListener('click', () => { unlockAudio(); level++; $('win').classList.remove('show'); buildLevel(); });
+$('nextBtn').addEventListener('click', () => { unlockAudio(); level = Math.min(level + 1, LEVELS); hideOverlays(); buildLevel(); });
 $('winHomeBtn').addEventListener('click', goMenu);
+$('restartBtn').addEventListener('click', () => { resetStickers(); startGame(mode); });
+$('partyHomeBtn').addEventListener('click', () => { resetStickers(); goMenu(); });
 $('muteBtn').addEventListener('click', () => { muted = !muted; store.set('bb-muted', muted); unlockAudio(); updateHud(); });
 
 // Home needs two taps so little hands don't quit by accident
@@ -601,8 +767,10 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 
 // Draw a level behind the menu so it looks alive
 mode = store.get('bb-mode', 'little');
+level = Math.min(stickers + 1, LEVELS);
 buildLevel(); state = 'menu';
 updateHud();
+renderSlots($('menuSlots'), stickers);
 requestAnimationFrame(frame);
 })();
 </script>

@@ -5,7 +5,12 @@ A gentle maze game for little kids. Help the bunny eat all the berries.
 - **Just berries** – no clouds, no way to "lose". Good for ~2–3 year olds.
 - **Berries + clouds** – friendly clouds wander around. If one bumps the bunny, it gets dizzy and hops back to the start. There are no lives and no game over. Eat a ⭐ and the clouds turn rainbow, so the bunny can tag them for bonus points.
 
-**Controls:** tap anywhere in the maze and the bunny walks there. You can also swipe, or use the big arrow buttons.
+**5 levels, 5 stickers:** each maze you clear earns a sticker (🐞 🌻 🦋 🍉 🦄). Collect all five for a big celebration. Progress is saved, so the kids carry on from the next sticker.
+
+**Controls:**
+- **Arrows:** the bunny hops only while an arrow is held down, and stops when you let go.
+- **Swipe:** the bunny keeps going until it hits a wall.
+- **Tap:** tap anywhere in the maze and the bunny walks there by itself.
 
 ## Host on GitHub Pages
 

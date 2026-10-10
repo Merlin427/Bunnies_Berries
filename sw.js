@@ -1,5 +1,5 @@
 // Bump this version whenever you change any file, so iPads pick up the update.
-const CACHE = 'bunny-berries-v1';
+const CACHE = 'bunny-berries-v2';
 const FILES = [
   './',
   './index.html',
